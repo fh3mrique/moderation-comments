@@ -1,8 +1,12 @@
 package com.projeto.comment_service.service;
 
+import com.projeto.comment_service.api.client.ModerationClient;
 import com.projeto.comment_service.api.model.CommentInput;
 import com.projeto.comment_service.api.model.CommentOutput;
+import com.projeto.comment_service.api.model.ModerationRequest;
+import com.projeto.comment_service.api.model.ModerationResponse;
 import com.projeto.comment_service.domain.exception.CommentNotFoundException;
+import com.projeto.comment_service.domain.exception.ModerationRejectedException;
 import com.projeto.comment_service.domain.model.Comment;
 import com.projeto.comment_service.domain.repository.CommentRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,10 +22,23 @@ import java.util.UUID;
 public class CommentService {
 
     private final CommentRepository commentRepository;
+    private final ModerationClient moderationClient;
+
 
     @Transactional()
     public CommentOutput createComment(CommentInput input) {
-        Comment comment = new Comment(input);
+        Comment comment = Comment.builder()
+                .author(input.getAuthor())
+                .text(input.getText())
+                .build();
+
+       ModerationRequest moderationRequest = new ModerationRequest(comment.getId(), input.getText());
+
+       ModerationResponse response = moderationClient.moderationComment(moderationRequest);
+
+       if (!response.getApproved()){
+           throw new ModerationRejectedException(response.getReason());
+       }
 
         commentRepository.save(comment);
 
